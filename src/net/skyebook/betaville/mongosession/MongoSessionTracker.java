@@ -1,20 +1,20 @@
 /**  
-*  MongoDB Betaville Session Engine - Betaville session storage in MongoDB
-*  Copyright (C) 2011 Skye Book
-*  
-*  This program is free software: you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation, either version 3 of the License, or
-*  (at your option) any later version.
-*  
-*  This program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-*  GNU General Public License for more details.
-*  
-*  You should have received a copy of the GNU General Public License
-*  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ *  MongoDB Betaville Session Engine - Betaville session storage in MongoDB
+ *  Copyright (C) 2011 Skye Book
+ *  
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *  
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package net.skyebook.betaville.mongosession;
 
 import java.net.UnknownHostException;
@@ -22,8 +22,11 @@ import java.net.UnknownHostException;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
+import com.mongodb.DBObject;
 import com.mongodb.Mongo;
 import com.mongodb.MongoException;
+import com.mongodb.WriteResult;
 
 import edu.poly.bxmc.betaville.server.session.Session;
 import edu.poly.bxmc.betaville.server.session.availability.SessionTracker;
@@ -34,11 +37,11 @@ import edu.poly.bxmc.betaville.util.Crypto;
  *
  */
 public class MongoSessionTracker extends SessionTracker {
-	
+
 	private Mongo mongo;
 	private DB database;
 	private DBCollection collection;
-	
+
 
 	/**
 	 * @throws MongoException 
@@ -60,13 +63,13 @@ public class MongoSessionTracker extends SessionTracker {
 		while(sessionTokenExists(tokenCandidate)){
 			tokenCandidate = Crypto.createSessionToken();
 		}
-		
+
 		Session session = new Session(user, sessionID, tokenCandidate);
 		insertSessionToDB(session);
-		
+
 		return session;
 	}
-	
+
 	private void insertSessionToDB(Session session){
 		BasicDBObject sessionObject = new BasicDBObject();
 		sessionObject.put(SessionConstants.USER, session.getUser());
@@ -81,8 +84,10 @@ public class MongoSessionTracker extends SessionTracker {
 	 */
 	@Override
 	public int killSession(String sessionToken) {
-		// TODO Auto-generated method stub
-		return 0;
+		DBObject query = new BasicDBObject(SessionConstants.SESSION_TOKEN, sessionToken);
+		WriteResult results = collection.remove(query);
+		if(results.getN()>0) return 0;
+		return -2;
 	}
 
 	/* (non-Javadoc)
@@ -90,8 +95,18 @@ public class MongoSessionTracker extends SessionTracker {
 	 */
 	@Override
 	public Session getSession(String sessionToken) {
-		// TODO Auto-generated method stub
-		return null;
+		DBObject query = new BasicDBObject(SessionConstants.SESSION_TOKEN, sessionToken);
+		DBCursor results = collection.find(query);
+
+		// retrieve the session and return it, or return null
+		if(results.hasNext()){
+			DBObject result = results.next();
+			if(result.containsField(SessionConstants.USER) && result.containsField(SessionConstants.SESSION_ID) && result.containsField(SessionConstants.SESSION_TOKEN)){
+				return new Session(result.get(SessionConstants.USER).toString(), Integer.parseInt(result.get(SessionConstants.SESSION_ID).toString()), result.get(SessionConstants.SESSION_TOKEN).toString());
+			}
+			else return null;
+		}
+		else return null;
 	}
 
 	/* (non-Javadoc)
@@ -99,8 +114,12 @@ public class MongoSessionTracker extends SessionTracker {
 	 */
 	@Override
 	public boolean sessionTokenExists(String tokenCandidate) {
-		// TODO Auto-generated method stub
-		return false;
+		DBObject query = new BasicDBObject(SessionConstants.SESSION_TOKEN, tokenCandidate);
+		DBCursor results = collection.find(query);
+
+		// if there was a result, then the token has already been used
+		if(results.hasNext()) return true;
+		else return false;
 	}
 
 }
