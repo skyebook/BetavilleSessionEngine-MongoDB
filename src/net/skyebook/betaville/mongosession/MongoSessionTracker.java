@@ -73,7 +73,6 @@ public class MongoSessionTracker extends SessionTracker {
 	private void insertSessionToDB(Session session){
 		BasicDBObject sessionObject = new BasicDBObject();
 		sessionObject.put(SessionConstants.USER, session.getUser());
-		sessionObject.put(SessionConstants.PASS, session.getPassword());
 		sessionObject.put(SessionConstants.SESSION_ID, session.getSessionID());
 		sessionObject.put(SessionConstants.SESSION_TOKEN, session.getSessionToken());
 		collection.insert(sessionObject);
